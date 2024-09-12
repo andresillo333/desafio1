@@ -1,0 +1,105 @@
+// C++ code
+//
+/*
+  LiquidCrystal Library - Hello World
+
+   Demonstrates the use of a 16x2 LCD display.
+  The LiquidCrystal library works with all LCD
+  displays that are compatible with the  Hitachi
+  HD44780 driver. There are many of them out
+  there, and you  can usually tell them by the
+  16-pin interface.
+
+  This sketch prints "Hello World!" to the LCD
+  and shows the time.
+
+  The circuit:
+  * LCD RS pin to digital pin 12
+  * LCD Enable pin to digital pin 11
+  * LCD D4 pin to digital pin 5
+  * LCD D5 pin to digital pin 4
+  * LCD D6 pin to digital pin 3
+  * LCD D7 pin to digital pin 2
+  * LCD R/W pin to ground
+  * LCD VSS pin to ground
+  * LCD VCC pin to 5V
+  * 10K resistor:
+  * ends to +5V and ground
+  * wiper to LCD VO pin (pin 3)
+
+  Library originally added 18 Apr 2008  by David
+  A. Mellis
+  library modified 5 Jul 2009  by Limor Fried
+  (http://www.ladyada.net)
+  example added 9 Jul 2009  by Tom Igoe
+  modified 22 Nov 2010  by Tom Igoe
+
+  This example code is in the public domain.
+
+  http://www.arduino.cc/en/Tutorial/LiquidCrystal
+*/
+
+#include <LiquidCrystal.h>
+bool prim=false;
+
+int seconds = 0;
+
+LiquidCrystal lcd_1(12, 11, 5, 4, 3, 2);
+
+void setup()
+{
+  //Pulsor generador
+  pinMode(7,INPUT);
+  //Recibir ondas
+  pinMode(A5, INPUT);
+  //detener Ondas
+  pinMode(13,INPUT);
+  Serial.begin(9600);
+  lcd_1.begin(16, 2);
+  sense(); 
+}
+
+void loop()
+  
+{
+  short verificacion1;
+  if (prim==false){
+    verificacion1=digitalRead(7);
+    
+  }else
+  {
+    short detener=digitalRead(13);
+    if (detener==1){
+      verificacion1=0;
+    }else{
+      verificacion1=1;
+    };
+    
+  };
+  
+  
+  short detener=digitalRead(13);
+  if (verificacion1==0){
+      float datos = analogRead(A5);
+      prim=true;
+      Serial.print(datos);
+      Serial.println();
+  
+  };
+
+
+  // Aquí podrías agregar otras operaciones para actualizar los datos en el LCD
+}
+
+void sense() {
+  lcd_1.setCursor(0, 0); // tipo de funcion
+  lcd_1.print("f1");
+  
+  lcd_1.setCursor(8, 0);
+  lcd_1.print("F: ");
+  lcd_1.print("f2"); //valor de la frecuencia
+
+  lcd_1.setCursor(0, 1); 
+  lcd_1.print("A: ");
+  lcd_1.print("f3"); //valor de la amplitud
+}
