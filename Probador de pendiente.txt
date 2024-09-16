@@ -1,0 +1,30 @@
+#include <LiquidCrystal.h>
+
+float slope, y1, y;	// Valor de la pendiente, 
+unsigned long time_s, time_f;	// Contienen el tiempo inicial y final
+bool pass = false;	// Permite identificar la continuidad o no del análisis de los datos
+short start=0, finish=0;	// Controlan el inicio y finalización de análisis de los datos
+
+LiquidCrystal lcd_1(12, 11, 5, 4, 3, 2);
+
+void setup(){
+  pinMode(A0, INPUT);	// Recepción continua de datos
+  pinMode(7, INPUT);	// Botón de inicio
+  pinMode(6, INPUT);	// Botón de fin
+  Serial.begin(9600);
+  lcd_1.begin(16, 2);
+}
+
+void loop(){  
+
+  start = digitalRead(7);
+  y1 = analogRead(A0);	// Recibimos un dato del generador
+  y = y1 + 0.01;	// Sumamos esto para obtener un valor muy cercano a y1
+  slope = y - y1;	// Calculamos m solo con y - y1, ya que x - x1 > 0, pues se refiere al tiempo 
+
+  if(start == 1){	// Si se presiona el botón de inicio
+    time_s = millis();	// Obtenemos el tiempo de inicio
+    pass = true;	// Permitimos el análisis de datos
+  }
+  
+  while((pass == true) && (finish != 1)){	// Si podemos analizar los datos y no hem
