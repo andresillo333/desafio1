@@ -1,0 +1,119 @@
+#include <LiquidCrystal.h>
+
+// Declaraciones globales
+bool prim = false;
+
+float** matriz_datos;  // Puntero a la matriz dinámica
+LiquidCrystal lcd_1(12, 11, 5, 4, 3, 2);
+
+
+
+
+
+float** Datos_ondas(float amplitud1, float frecuencia1, float tipo1, float tiempo1,
+                    float amplitud2, float frecuencia2, float tipo2, float tiempo2) {
+    // Reservar el espacio para las filas
+    float** matriz_datos = new float*[2];
+
+    // Reservar el espacio para las columnas
+    for (int i = 0; i < 2; i++) {
+        matriz_datos[i] = new float[4];
+    }
+
+    // Llenar la matriz con los datos para la función 1
+    matriz_datos[0][0] = amplitud1;    // Amplitud para la función 1
+    matriz_datos[0][1] = frecuencia1; // Frecuencia para la función 1
+    matriz_datos[0][2] = tipo1;       // Tipo de onda para la función 1
+    matriz_datos[0][3] = tiempo1;     // Tiempo para la función 1
+
+    // Llenar la matriz con los datos para la función 2
+    matriz_datos[1][0] = amplitud2;    // Amplitud para la función 2
+    matriz_datos[1][1] = frecuencia2; // Frecuencia para la función 2
+    matriz_datos[1][2] = tipo2;       // Tipo de onda para la función 2
+    matriz_datos[1][3] = tiempo2;     // Tiempo para la función 2
+
+    return matriz_datos;
+}
+
+// hay que llamar a la funcion de liberar memoria cuando ya
+//necesitemos otras ondas en la matriz 
+
+void liberarDatos(float** matriz_datos) {
+    // Verificar si el puntero es válido
+    if (matriz_datos != nullptr) {
+        // Liberar el espacio reservado para las columnas de cada fila
+        for (int i = 0; i < 2; i++) {
+            delete[] matriz_datos[i];
+        }
+        // Liberar el espacio reservado para las filas
+        delete[] matriz_datos;
+    }
+}
+
+
+void setup()
+{
+  //Pulsor generador
+  pinMode(7,INPUT);
+  //Recibir ondas
+  pinMode(A5, INPUT);
+  //detener Ondas
+  pinMode(13,INPUT);
+  Serial.begin(9600);
+  lcd_1.begin(16, 2);
+  sense(); 
+  
+}
+
+void loop()
+  
+{
+  short detener=digitalRead(13);
+  short verificacion1;
+  if (prim==false){
+    verificacion1=digitalRead(7);
+    
+  }else
+  {
+    if (detener==1){
+      verificacion1=0;
+      
+    }else{
+      verificacion1=1;
+      prim=false;
+      
+    };
+    
+  };
+  
+  if (verificacion1==0){
+      float dato = analogRead(A5);
+      prim=true;
+      Serial.print(dato);
+      Serial.println();
+      
+    
+  
+  };
+
+}
+
+
+
+
+void sense() {
+  lcd_1.setCursor(0, 0); // tipo de funcion
+  lcd_1.print("f1");
+  
+  lcd_1.setCursor(8, 0);
+  lcd_1.print("F: ");
+  lcd_1.print("f2"); //valor de la frecuencia
+
+  lcd_1.setCursor(0, 1); 
+  lcd_1.print("A: ");
+  lcd_1.print("f3"); //valor de la amplitud
+}
+
+
+// aqui vamos a empezar la funcion para redimensionar 
+// la matriz que reciba los datos
