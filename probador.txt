@@ -1,14 +1,13 @@
 #include <LiquidCrystal.h>
 
-float square(float peak);
-float wave[4] = {};
-float* datos_ondas;
+int square(int peak);
+int wave[4] = {};
 
-float slope, y1, y;	// Valores de la pendiente y coordenadas en y
+int slope, y1, y;	// Valores de la pendiente y coordenadas en y
 unsigned long time_s, time_f;	// Contienen el tiempo inicial y final
 bool pass = false;	// Permite identificar la continuidad o no del análisis de los datos
 short start=0, finish=0;	// Controlan el inicio y finalización de análisis de los datos
-bool inicializacion=false;
+
 LiquidCrystal lcd_1(12, 11, 5, 4, 3, 2);
 
 void setup(){
@@ -17,8 +16,6 @@ void setup(){
   pinMode(6, INPUT);	// Botón de fin
   Serial.begin(9600);
   lcd_1.begin(16, 2);
-  sense(datos_ondas); 
-  
 }
 
 void loop(){  
@@ -44,29 +41,13 @@ void loop(){
   	}
     
    	y1 = analogRead(A0);
-    float max = 0;
+    int max = 0;
     while(y1 > max){	// Encontrando el pico de la onda
       max = y1;
       y1 = analogRead(A0);
       if(y1 == max){	// Posible onda cuadrada encontrada
         Serial.println("Posible onda cuadrada encontrada");
         *wave = square(max);
-        
-        if (inicializacion==false){
-          datos_ondas=Datos_ondas(wave);
-          inicializacion=true;
-        
-        }else{
-          cambiar_datos(wave,datos_ondas);
-          
-        }
-        //verificamos si el boton de finalizar ya se apreto
-        //entoces llamamos a la funcions de mostrar pantalla
-        //que imprimira el arreglo con mayor tiempo en el intervalo
-        //en este condicional tambien se liberara despues de mostrar 
-        //la informacion la memoria de la matriz dinamica
-        
-        
       }
     }
        
@@ -75,24 +56,22 @@ void loop(){
 }
 
 
-float square(float peak){	// Definición de la función square
+int square(int peak){	// Definición de la función square
   
   Serial.print("Logramos entrar   |   ");
   Serial.println("Valor del pico: ");
   Serial.println(peak);
   
-  float wave_data[4] = {};  // {t_elapsed, type, amplitude, frequency}
-  unsigned long t_start, t_finish, t_elapsed;
-  float y_value, valley, amplitude, frequency;
+  int wave_data[4] = {};  // {t_elapsed, type, amplitude, frequency}
+  unsigned long t_start, t_finish, frequency;
+  int y_value, valley, amplitude, t_elapsed, ciclos = 0;
   bool found = false, update = false;	// Para verificar el encuentro del valle
-  float ciclos = 0;
   
   y_value = analogRead(A0);
-  //Serial.println(y_value);
   
   while(found != true){	// Mientras no se ha encontrado el valor del valle
     
-    valley = y_value - 0.01;
+    valley = y_value - 1;
     Serial.print("Valor del valle: ");
     Serial.println(valley);
     
@@ -100,17 +79,22 @@ float square(float peak){	// Definición de la función square
     Serial.print("Valor de y: ");
     Serial.println(y_value);
     
+    if((y_value > peak) && (update == false)){
+      peak = y_value;
+      Serial.print("Valor del pico actualizado: "); Serial.println(peak);
+      update = true;
+    }
+    
     Serial.println("Buscando valor del valle...");
     if(y_value < valley){	// Si se encuentra el valor del valle
       valley = y_value;
       found = true;
-      Serial.print("Hallamos valor del valle: ");
-      Serial.println(valley);
+      Serial.print("Hallamos valor del valle: "); Serial.println(valley);
       break;
     }
   }
   
-  amplitude = peak - valley;
+  amplitude = (peak - valley)/2;
   wave_data[2] = amplitude;
   
   bool step1 = false, step2 = false;
@@ -121,7 +105,7 @@ float square(float peak){	// Definición de la función square
     
     if(y_value == valley){  // Estamos en un valle
       step1 = true;
-      Serial.println("Estamos en un valle");
+      Serial.println("Estamos en un valle-------------------------------------------");
     }
     if((step1 == true) && (y_value == peak)){  // Estamos en un pico
       Serial.println("Estamos en un pico");
@@ -130,9 +114,11 @@ float square(float peak){	// Definición de la función square
     if((step2 == true) && (y_value == valley)){  // Estamos en un valle de nuevo
       Serial.println("Estamos en un valle de nuevo");
       step1 = false; step2 = false;
-      ciclos++;
+      ciclos+=1;
     }
+    Serial.print("Valor de 'y' antes de finalizar: "); Serial.println(y_value);
     if((y_value != peak) || (y_value != valley)){
+      Serial.print("Cantidad de ciclos: "); Serial.println(ciclos);
       t_finish = millis();
       t_elapsed = t_finish - t_start;
       frequency = ciclos/(t_elapsed/1000);
@@ -152,50 +138,4 @@ float square(float peak){	// Definición de la función square
   wave_data[1] = 1;
   return *wave_data;
   
-}
-
-
-
-float* Datos_ondas(float *wave) {
-    // Reservar el espacio para 4 floats (una fila)
-    float* matriz_datos = new float[4];
-
-    // Usar aritmética de punteros para llenar la matriz con los datos
-    float* ptr = matriz_datos; // Apuntar al primer elemento del array
-
-    *ptr     = *wave;   // Equivalente a matriz_datos[0] = amplitud;
-    *(ptr + 1) =*(wave+1); // Equivalente a matriz_datos[1] = frecuencia;
-    *(ptr + 2) = *(wave+2);       // Equivalente a matriz_datos[2] = tipo;
-    *(ptr + 3) = *(wave+3);     // Equivalente a matriz_datos[3] = tiempo;
-
-    return matriz_datos;
-}
-
-void cambiar_datos(float *wave, float* matriz_datos) {
-    // Apuntar al primer elemento del array
-    float* ptr = matriz_datos;
-
-    // Comprobar si el nuevo tiempo es mayor que el actual
-    if (*wave > *ptr) {  // Equivalente a matriz_datos[3]
-        // Actualizar los datos de la matriz usando aritmética de punteros
-        *ptr     = *wave;   // Equivalente a matriz_datos[0]
-        *(ptr + 1) = *(wave+1); // Equivalente a matriz_datos[1]
-        *(ptr + 2) = *(wave+2);       // Equivalente a matriz_datos[2]
-      *(ptr + 3) = *(wave+3);     // Equivalente a matriz_datos[3]
-    }
-      
-}
-void sense(float* matriz_datos) {
-    float* ptr = matriz_datos;  // Se asigna el puntero matriz_datos a ptr
-
-    lcd_1.setCursor(0, 0);
-    lcd_1.print(*(ptr+3));  // Imprime el valor en la cuarta posición del arreglo
-
-    lcd_1.setCursor(8, 0);
-    lcd_1.print("F: ");
-    lcd_1.print(*(ptr+1));  // Imprime el valor de la frecuencia (segunda posición)
-
-    lcd_1.setCursor(0, 1);
-    lcd_1.print("A: ");
-    lcd_1.print(*(ptr+2));  // Imprime el valor de la amplitud (tercera posición)
 }
