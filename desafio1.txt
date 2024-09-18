@@ -1,105 +1,235 @@
-// C++ code
-//
-/*
-  LiquidCrystal Library - Hello World
-
-   Demonstrates the use of a 16x2 LCD display.
-  The LiquidCrystal library works with all LCD
-  displays that are compatible with the  Hitachi
-  HD44780 driver. There are many of them out
-  there, and you  can usually tell them by the
-  16-pin interface.
-
-  This sketch prints "Hello World!" to the LCD
-  and shows the time.
-
-  The circuit:
-  * LCD RS pin to digital pin 12
-  * LCD Enable pin to digital pin 11
-  * LCD D4 pin to digital pin 5
-  * LCD D5 pin to digital pin 4
-  * LCD D6 pin to digital pin 3
-  * LCD D7 pin to digital pin 2
-  * LCD R/W pin to ground
-  * LCD VSS pin to ground
-  * LCD VCC pin to 5V
-  * 10K resistor:
-  * ends to +5V and ground
-  * wiper to LCD VO pin (pin 3)
-
-  Library originally added 18 Apr 2008  by David
-  A. Mellis
-  library modified 5 Jul 2009  by Limor Fried
-  (http://www.ladyada.net)
-  example added 9 Jul 2009  by Tom Igoe
-  modified 22 Nov 2010  by Tom Igoe
-
-  This example code is in the public domain.
-
-  http://www.arduino.cc/en/Tutorial/LiquidCrystal
-*/
-
 #include <LiquidCrystal.h>
-bool prim=false;
 
-int seconds = 0;
+// Declaración de funciones
+float* square(float peak);
+float* Datos_ondas(float* wave);
+void cambiar_datos(float* wave, float* matriz_datos);
+void sense(float* matriz_datos);
+void liberar_memoria(float* matriz_datos);
+
+// Variables globales
+float* wave = nullptr; // Puntero único a los datos de la onda
+float* datos_ondas = nullptr;
+
+bool inicializacion = false;
+int slope, y1, y;  // Valores de la pendiente y coordenadas en y
+unsigned long time_s, time_f;  // Contienen el tiempo inicial y final
+bool pass = false;  // Permite identificar la continuidad o no del análisis de los datos
+bool start = false, finish = false;  // Controlan el inicio y finalización de análisis de los datos
 
 LiquidCrystal lcd_1(12, 11, 5, 4, 3, 2);
 
-void setup()
-{
-  //Pulsor generador
-  pinMode(7,INPUT);
-  //Recibir ondas
-  pinMode(A5, INPUT);
-  //detener Ondas
-  pinMode(13,INPUT);
+void setup() {
+  pinMode(A0, INPUT);  // Recepción continua de datos
+  pinMode(7, INPUT);   // Botón de inicio
+  pinMode(6, INPUT);   // Botón de fin
   Serial.begin(9600);
   lcd_1.begin(16, 2);
-  sense(); 
 }
 
-void loop()
-  
-{
-  short verificacion1;
-  if (prim==false){
-    verificacion1=digitalRead(7);
-    
-  }else
-  {
-    short detener=digitalRead(13);
-    if (detener==1){
-      verificacion1=0;
-    }else{
-      verificacion1=1;
-    };
-    
-  };
-  
-  
-  short detener=digitalRead(13);
-  if (verificacion1==0){
-      float datos = analogRead(A5);
-      prim=true;
-      Serial.print(datos);
-      Serial.println();
-  
-  };
+void loop() {
+  start = digitalRead(7) == HIGH;
+  finish = digitalRead(6) == HIGH;
+  y1 = analogRead(A0);  // Recibimos un dato del generador
+  slope = 0;  // Asignar directamente si no se utiliza
 
+  if (start) {  // Botón de inicio presionado
+    Serial.println("Se presionó el botón de inicio");
+    time_s = millis();  // Tiempo de inicio
+    pass = true;  // Permite análisis de datos
+  }
 
-  // Aquí podrías agregar otras operaciones para actualizar los datos en el LCD
+  while (pass) {
+    finish = digitalRead(6) == HIGH;
+    if (finish) {
+      time_f = millis();  // Tiempo de finalización
+      pass = false;  // Negamos el análisis de datos
+      break;
+    }
+
+    delay(50);  // Añadir un pequeño retraso para evitar lecturas continuas rápidas
+    y1 = analogRead(A0);  // Lee el valor analógico
+    float max_val = 0;
+
+    // Detectar el pico de la onda
+    while (max_val < y1) {
+      max_val = y1;
+      y1 = analogRead(A0);
+    }
+
+    Serial.print("Valor máximo: ");
+    Serial.println(max_val);
+
+    // Detectar posible onda cuadrada
+    if (y1 == max_val) {
+     Serial.println("Posible onda cuadrada detectada");
+     int cont = 0;
+
+      
+      while (y1 == max_val && cont < 2 ) {
+        cont++;
+        y1 = analogRead(A0);
+
+        
+        if (y1 == max_val && cont == 2 ) {
+          Serial.println("En efecto, tenemos una onda cuadrada");
+          wave = square(max_val);
+
+          if (wave == nullptr) {
+            Serial.println("Error: square retornó nullptr");
+            break;
+         }
+
+          if (!inicializacion) {
+            datos_ondas = Datos_ondas(wave);
+            inicializacion = true;
+          } else {
+            cambiar_datos(wave, datos_ondas);
+          }
+
+          // Liberar memoria de wave después de usarla
+          delete[] wave;
+          wave = nullptr;
+
+          if (finish) {
+            sense(datos_ondas);  // Mostrar los datos en la LCD
+            liberar_memoria(datos_ondas);  // Liberar memoria
+            datos_ondas = nullptr;
+            inicializacion = false;
+            break;
+          }
+        }
+      }
+    }
+  }
 }
 
-void sense() {
-  lcd_1.setCursor(0, 0); // tipo de funcion
-  lcd_1.print("f1");
-  
-  lcd_1.setCursor(8, 0);
-  lcd_1.print("F: ");
-  lcd_1.print("f2"); //valor de la frecuencia
+float* square(float peak) {
+  Serial.print("Logramos entrar   |   ");
+  Serial.print("Valor del pico: ");
+  Serial.println(peak);
 
-  lcd_1.setCursor(0, 1); 
-  lcd_1.print("A: ");
-  lcd_1.print("f3"); //valor de la amplitud
+  float* wave_data = new float[4]();  // {t_elapsed, type, amplitude, frequency}
+  unsigned long t_start, t_finish;
+  float frequency;
+  int y_value, valley, amplitude, t_elapsed, ciclos = 0;
+  bool found = false;
+
+  y_value = analogRead(A0);
+
+  // Búsqueda del valor del valle con tolerancia al ruido
+  while (!found) {
+    valley = y_value - 1;
+    y_value = analogRead(A0);
+    if (y_value < (valley - 2)) {  // Tolerancia al ruido
+      valley = y_value;
+      found = true;
+    }
+  }
+
+  amplitude = (peak - valley) / 2;
+  *(wave_data + 2) = amplitude;
+
+  bool step1 = false, step2 = false;
+  t_start = millis();
+
+  while ((y_value == peak || y_value == valley) && !finish) {
+    finish = digitalRead(6) == HIGH;
+    y_value = analogRead(A0);
+
+    if (y_value == valley) {
+      step1 = true;
+    }
+    if (step1 && y_value == peak) {
+      step2 = true;
+    }
+    if (step2 && y_value == valley) {
+      step1 = false;
+      step2 = false;
+      ciclos += 1;
+    }
+
+    if (finish) {
+      t_finish = millis();
+      t_elapsed = t_finish - t_start;
+      frequency = (ciclos * 1000.0) / t_elapsed;  // Hz
+      *(wave_data + 0) = t_elapsed; 
+      *(wave_data + 3) = frequency;
+
+      Serial.println("------------Data info-----------");
+      Serial.print("Amplitud: ");
+      Serial.println(amplitude);
+      Serial.print("Frecuencia: ");
+      Serial.println(frequency);
+      Serial.print("Tiempo transcurrido: ");
+      Serial.println(t_elapsed);
+
+      pass = false;
+      break;
+    }
+  }
+
+  *(wave+1) = 1;  // Tipo de onda cuadrada
+  return wave_data;
+}
+
+float* Datos_ondas(float* wave) {
+   float* matriz_datos = new float[4];
+    float* ptr = matriz_datos;
+
+    // Copiar los datos usando aritmética de punteros
+    *ptr = *(wave + 0);           // Tiempo transcurrido
+    *(ptr + 1) = *(wave + 3);     // Frecuencia
+    *(ptr + 2) = *(wave + 2);     // Amplitud
+    *(ptr + 3) = *(wave + 1);     // Tipo
+
+    return matriz_datos;
+}
+
+void cambiar_datos(float* wave, float* matriz_datos) {
+   float* ptr = matriz_datos;
+
+    // Comparar la frecuencia
+    if (*(wave+0) > *(ptr+0)) { // Si el tiempo es mayor
+        // Actualizar los datos usando aritmética de punteros
+        *(ptr + 0) = *(wave + 0); // Tiempo transcurrido
+        *(ptr + 1) = *(wave + 3); // Frecuencia
+        *(ptr + 2) = *(wave + 2); // Amplitud
+        *(ptr + 3) = *(wave + 1); // Tipo
+    }
+   else {
+    Serial.println("El tiempo nuevo es menor o igual, no se actualizan los datos.");
+  }
+}
+
+void sense(float* matriz_datos) {
+  float* ptr = matriz_datos;
+
+    // Mostrar en Serial
+    Serial.print("Tiempo: ");
+    Serial.println(*ptr);
+    Serial.print("Tipo: ");
+    Serial.println(*(ptr + 3));
+    Serial.print("Amplitud: ");
+    Serial.println(*(ptr + 2));
+    Serial.print("Frecuencia: ");
+    Serial.println(*(ptr + 1));
+    
+    // Mostrar en LCD
+    lcd_1.setCursor(0, 0);
+    lcd_1.print("T: ");
+    lcd_1.print(*(ptr+3)); // Tipo de onda
+
+    lcd_1.setCursor(8, 0);
+    lcd_1.print("F: ");
+    lcd_1.print(*(ptr + 1)); // Frecuencia
+
+    lcd_1.setCursor(0, 1);
+    lcd_1.print("A: ");
+    lcd_1.print(*(ptr + 2)); // Amplitud
+}
+
+void liberar_memoria(float* matriz_datos) {
+  delete[] matriz_datos;
+  Serial.println("Memoria liberada.");
 }
